@@ -1253,15 +1253,16 @@ export class ClaudeBridge {
     if (!raw) return null;
 
     try {
-      // --output-format json returns a JSON object with a "result" field
+      // --output-format json returns a JSON array of event objects:
+      // [{ type: "system", ... }, { type: "assistant", ... }, { type: "result", result: "..." }]
       const data = JSON.parse(raw);
-      const text = data.result || "";
+      const items = Array.isArray(data) ? data : [data];
+      const resultItem = items.find((item: any) => item.type === "result");
+      if (!resultItem) return null;
+
+      const text = resultItem.result || "";
       if (!text || text.trim().toUpperCase() === "[SILENT]") {
         return null;
-      }
-      // Capture session ID from first invocation if available
-      if (!this.sessionId && data.session_id) {
-        this.sessionId = data.session_id;
       }
       return text.trim();
     } catch {
@@ -2103,7 +2104,7 @@ import { Command } from "commander";
 import { render } from "ink";
 import React from "react";
 import { RingServer } from "./server/ring.js";
-import { openTunnel } from "./server/tunnel.js";
+import { openTunnel, type TunnelInfo } from "./server/tunnel.js";
 import { Daemon } from "./daemon/daemon.js";
 import { App } from "./client/App.js";
 import { DEFAULT_PORT, DEFAULT_DAEMON_CONFIG } from "./shared/config.js";
@@ -2129,21 +2130,22 @@ program
     console.log(`Ring server running locally on ws://localhost:${port}`);
 
     let publicUrl: string;
+    let tunnelInstance: TunnelInfo | null = null;
 
     if (opts.url) {
       publicUrl = opts.url;
       console.log(`Public URL: ${publicUrl}`);
     } else {
       console.log("Exposing to internet...");
-      const tunnel = await openTunnel(port);
-      publicUrl = tunnel.url;
+      tunnelInstance = await openTunnel(port);
+      publicUrl = tunnelInstance.url;
       console.log(`Public URL: ${publicUrl}`);
-
-      process.on("SIGINT", () => {
-        tunnel.close();
-        server.stop().then(() => process.exit(0));
-      });
     }
+
+    process.on("SIGINT", () => {
+      if (tunnelInstance) tunnelInstance.close();
+      server.stop().then(() => process.exit(0));
+    });
 
     console.log("Share this URL with other participants.");
   });
