@@ -87,8 +87,10 @@ A deliberately simple WebSocket broadcast relay with no business logic.
 
 **Does NOT do:**
 - Authentication (MVP)
-- Message persistence (messages live in memory only)
 - Rooms/channels (one server = one ring)
+
+**Reconnection resilience:**
+The server maintains a bounded message buffer (last 200 messages). When a participant reconnects, they receive missed messages as a catch-up batch. Both the TUI and daemon handle reconnection automatically with exponential backoff.
 
 **Networking:**
 The server runs locally on the host's machine and is automatically exposed to the internet via a tunnel (localtunnel or bore). This allows remote participants to connect without any infrastructure setup.
@@ -100,6 +102,8 @@ Exposing to internet...
 Public URL: wss://abc123.bore.pub
 Share this URL with other participants.
 ```
+
+**Note:** Tunnel services (especially localtunnel) can be unreliable. URLs may change on reconnection. For users who want stable connectivity, a `--url` flag allows providing a custom public endpoint (e.g., via ngrok, Cloudflare Tunnel, or a direct IP with port forwarding).
 
 ### 2. Chat TUI (Ink)
 
@@ -172,40 +176,55 @@ The core piece. Runs in background when the user does `real-steel join`. Bridges
 3. **Bridge** - Formats messages and executes:
    ```
    claude --resume <session-id> --print \
+     --output-format json \
+     --permission-mode auto \
      "New messages in the ring:
       [22:41 Pedro]: we have a bug in /users
-      [22:42 Samuel]: I saw something similar yesterday
-
-      Respond ONLY if you have something useful to contribute.
-      If you have nothing relevant, respond exactly: [SILENT]"
+      [22:42 Samuel]: I saw something similar yesterday"
    ```
+   The bridge uses `--output-format json` for structured, reliable output parsing.
+   The bridge uses `--permission-mode auto` so Claude can use its full toolset (read files, run commands) without interactive permission prompts.
 
-4. **Response** - If Claude responds with something other than `[SILENT]`, the daemon sends it to the ring. If Claude responds `[SILENT]`, nothing is posted.
+4. **Response parsing** - The bridge parses Claude's JSON output. The system prompt instructs Claude to wrap its decision in a structured format. If Claude decides it has nothing to contribute, it signals this explicitly and the daemon posts nothing to the ring.
+
+**Concurrency control:**
+The daemon maintains a busy lock. While Claude is processing a batch, the debouncer continues accumulating new messages. When the current invocation finishes, if there are accumulated messages, the bridge is immediately invoked again with the new batch.
+
+**Agent loop circuit breaker:**
+To prevent infinite agent-to-agent loops (Claude-Pedro responds → triggers Claude-Samuel → responds → triggers Claude-Pedro...), the daemon applies a rule: if the accumulated batch contains ONLY agent messages (no human messages), the daemon does NOT invoke Claude. At least one human message must be present in the batch to trigger an invocation. This ensures humans remain in the loop.
+
+**Rate limiting:**
+Configurable max invocations per minute (default: 2/min). Prevents runaway costs in active conversations.
 
 **Claude Code Session:**
-- Created on `join` with a system prompt explaining the context:
-  > "You are in a Real Steel ring - a group chat with other humans and AI agents. You are the agent of [name]. You participate as an equal. Don't respond to every message - only when you have something genuinely useful to contribute. You have access to the local files and projects of [name]."
-- Uses `--resume` on every invocation to maintain full conversational context.
+- **Bootstrap:** The first invocation creates the session using `claude --print --output-format json --permission-mode auto --append-system-prompt "<ring context>"`. This returns a session ID that is stored for subsequent calls.
+- **Subsequent calls:** Use `--resume <session-id>` to continue the same conversation.
+- The `--append-system-prompt` flag (not `--system-prompt`) preserves Claude Code's default capabilities and safety guidelines while adding the ring context:
+  > "You are in a Real Steel ring - a group chat with other humans and AI agents. You are the agent of [name]. You participate as an equal. Don't respond to every message - only when you have something genuinely useful to contribute. You have access to the local files and projects of [name]. When you have nothing to add, say so briefly instead of forcing a response."
 - Claude Code's automatic context compression handles long conversations.
 
 ### 4. Privacy Filter
 
 Configurable per user. Injected into Claude's system prompt by the daemon.
 
+**Important:** Prompt-based privacy is best-effort, not guaranteed. Claude follows instructions but there is no hard technical enforcement preventing information leakage. For sensitive environments, whitelist mode is strongly recommended.
+
 **Modes:**
-- **Whitelist** (default): Claude can only share information from explicitly allowed sources.
+- **Whitelist** (default): Claude can only share information from explicitly allowed sources. The daemon restricts Claude's tool access (via `--allowedTools`) to only whitelisted paths.
   > "You may only share information from: [repo-x, project-y]"
-- **Blacklist**: Claude can share everything except explicitly blocked sources.
+- **Blacklist**: Claude can share everything except explicitly blocked sources. The daemon uses `--disallowedTools` to prevent access to blacklisted paths.
   > "Do not share anything related to: [.env, credentials, private-repo]"
-- **Claude decides**: Full trust in Claude's judgment about what is appropriate to share.
+- **Claude decides**: Full trust in Claude's judgment about what is appropriate to share. No tool restrictions applied.
 
 ## Message Protocol
 
-JSON over WebSocket. Three message types:
+JSON over WebSocket. Every message has a unique `id` (UUID) and a per-participant `seq` number for ordering and deduplication.
 
 **Chat message (human or agent):**
 ```json
 {
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "seq": 12,
   "type": "message",
   "from": "Pedro",
   "role": "human",
@@ -217,6 +236,8 @@ JSON over WebSocket. Three message types:
 **Agent message:**
 ```json
 {
+  "id": "550e8400-e29b-41d4-a716-446655440001",
+  "seq": 3,
   "type": "message",
   "from": "Claude-Pedro",
   "role": "agent",
@@ -228,11 +249,15 @@ JSON over WebSocket. Three message types:
 **System event:**
 ```json
 {
+  "id": "550e8400-e29b-41d4-a716-446655440002",
+  "seq": 0,
   "type": "system",
   "content": "Samuel has joined the ring",
   "timestamp": "2026-03-24T22:51:00Z"
 }
 ```
+
+The server tracks the last `seq` per participant to detect duplicates and ensure ordering.
 
 ## CLI Interface
 
@@ -304,8 +329,15 @@ The MVP delivers the full basic experience: two humans + two Claudes in a termin
 
 **Out of scope (future):**
 - Authentication / invitations
-- Message persistence / history
+- Message persistence / history beyond the 200-message buffer
 - Multiple rooms per server
 - File sharing in chat
 - Central hosted server option
 - Mobile/web client
+
+## Known Limitations
+
+- **Privacy is best-effort:** Prompt-based privacy controls rely on Claude following instructions. No hard technical sandboxing of information.
+- **Tunnel reliability:** Free tunnel services may drop connections or change URLs. Users with stable needs should use their own public endpoints.
+- **Participant identity is not validated:** The `--name` flag is the only identity mechanism. Nothing prevents duplicate names or impersonation. Acceptable for MVP among trusted collaborators.
+- **Graceful shutdown:** On Ctrl+C, the daemon sends a disconnect event to the ring and waits for any in-progress Claude invocation to finish before exiting.
