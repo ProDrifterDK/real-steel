@@ -1,4 +1,4 @@
-import localtunnel from "localtunnel";
+import { spawnCloudflared, type CloudflaredProcess } from "./cloudflared.js";
 
 export interface TunnelInfo {
   url: string;
@@ -6,18 +6,15 @@ export interface TunnelInfo {
 }
 
 export async function openTunnel(port: number): Promise<TunnelInfo> {
-  const tunnel = await localtunnel({ port });
+  const cf = await spawnCloudflared(port);
 
-  tunnel.on("error", (err: Error) => {
-    console.error("Tunnel error:", err.message);
-  });
-
-  tunnel.on("close", () => {
-    console.error("Tunnel closed unexpectedly");
-  });
+  // Convert https:// to wss:// for WebSocket
+  const wsUrl = cf.url
+    .replace("https://", "wss://")
+    .replace("http://", "ws://");
 
   return {
-    url: tunnel.url.replace("https://", "wss://").replace("http://", "ws://"),
-    close: () => tunnel.close(),
+    url: wsUrl,
+    close: () => cf.kill(),
   };
 }

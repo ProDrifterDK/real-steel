@@ -15,7 +15,6 @@
     "commander": "^14.0.3",
     "ink": "^6.8.0",
     "ink-text-input": "^6.0.0",
-    "localtunnel": "^2.0.2",
     "marked": "^15.0.12",
     "marked-highlight": "^2.2.3",
     "marked-terminal": "^7.3.0",
