@@ -6,6 +6,10 @@ import { render } from "ink";
 import React from "react";
 import { RingServer } from "./server/ring.js";
 import { openTunnel, type TunnelInfo } from "./server/tunnel.js";
+import {
+  isCloudflaredInstalled,
+  installCloudflared,
+} from "./server/cloudflared.js";
 import { Daemon } from "./daemon/daemon.js";
 import { App } from "./client/App.js";
 import { DEFAULT_PORT, DEFAULT_DAEMON_CONFIG } from "./shared/config.js";
@@ -37,20 +41,36 @@ program
 
     if (opts.url) {
       publicUrl = opts.url;
-      console.log(`Public URL: ${publicUrl}`);
     } else {
-      console.log("Exposing to internet...");
+      // Check for cloudflared
+      if (!isCloudflaredInstalled()) {
+        console.log("cloudflared is not installed (needed for internet tunneling).");
+        console.log("Installing cloudflared...");
+        const ok = await installCloudflared();
+        if (!ok) {
+          console.error("Auto-install failed. Please install manually:");
+          console.error("  macOS:  brew install cloudflared");
+          console.error(
+            "  Linux:  https://github.com/cloudflare/cloudflared/releases/latest"
+          );
+          await server.stop();
+          process.exit(1);
+        }
+        console.log("cloudflared installed successfully.");
+      }
+
+      console.log("Opening tunnel...");
       tunnelInstance = await openTunnel(port);
       publicUrl = tunnelInstance.url;
-      console.log(`Public URL: ${publicUrl}`);
     }
+
+    console.log(`\nPublic URL: ${publicUrl}`);
+    console.log("Share this with other participants to join.\n");
 
     process.on("SIGINT", () => {
       if (tunnelInstance) tunnelInstance.close();
       server.stop().then(() => process.exit(0));
     });
-
-    console.log("Share this URL with other participants.");
   });
 
 program
