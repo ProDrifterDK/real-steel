@@ -1,0 +1,9 @@
+{
+  "name": "real-steel",
+  "version": "0.2.0",
+  "description": "Collaborative terminal chat where humans work alongside their Claude Code AI agents in a shared ring",
+  "author": { "name": "ProDrifterDK" },
+  "repository": "https://github.com/prodrifterdk/real-steel",
+  "license": "MIT",
+  "keywords": ["collaboration", "chat", "multi-agent", "ring"]
+}

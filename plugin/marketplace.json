@@ -1,0 +1,18 @@
+{
+  "name": "prodrifterdk-plugins",
+  "owner": {
+    "name": "ProDrifterDK"
+  },
+  "plugins": [
+    {
+      "name": "real-steel",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/prodrifterdk/real-steel.git",
+        "path": "plugin"
+      },
+      "description": "Collaborative terminal chat with humans + Claude Code AI agents",
+      "version": "0.2.0"
+    }
+  ]
+}
