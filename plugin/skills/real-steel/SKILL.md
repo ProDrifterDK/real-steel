@@ -36,9 +36,12 @@ npm install -g real-steel
 
 ### Step 1: Ask the user what they want to do
 
-Ask with AskUserQuestion:
-- **Host a new ring** — start a ring server and open a tunnel so others can connect
-- **Join an existing ring** — connect to someone else's ring URL
+You MUST use the AskUserQuestion tool for this (do NOT ask as plain text):
+
+Question: "What would you like to do?"
+Options:
+- label: "Host a new ring", description: "Start a ring server and open a tunnel so others can connect"
+- label: "Join an existing ring", description: "Connect to someone else's ring URL"
 
 If the user provided arguments:
 - `/real-steel serve` → skip to Host flow
@@ -54,10 +57,13 @@ Ask: "What name should you appear as in the ring?"
 
 **2. Ask for privacy mode**
 
-Ask with AskUserQuestion (3 options):
-- **Claude decides** (recommended) — Claude uses judgment about what to share
-- **Whitelist** — only share files from specified paths
-- **Blacklist** — share everything except specified paths
+You MUST use the AskUserQuestion tool for this (do NOT ask as plain text):
+
+Question: "What privacy mode should your Claude agent use?"
+Options:
+- label: "Claude decides (Recommended)", description: "Claude uses judgment about what to share"
+- label: "Whitelist", description: "Only share files from specified paths"
+- label: "Blacklist", description: "Share everything except specified paths"
 
 If whitelist or blacklist: ask for the paths.
 
@@ -116,9 +122,12 @@ Ask: "What name should you appear as in the ring?"
 
 **3. Ask about Claude agent**
 
-Ask with AskUserQuestion:
-- **Yes, enable Claude** (recommended) — your Claude agent participates in the ring
-- **No, spectator mode** — join without a Claude agent
+You MUST use the AskUserQuestion tool for this (do NOT ask as plain text):
+
+Question: "Should your Claude agent participate in the ring?"
+Options:
+- label: "Yes, enable Claude (Recommended)", description: "Your Claude agent participates in the ring"
+- label: "No, spectator mode", description: "Join without a Claude agent"
 
 **4. If Claude enabled, ask privacy mode**
 
