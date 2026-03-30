@@ -4,6 +4,7 @@ import "./shared/colors.js"; // Must be first: enables chalk colors before marke
 import { Command } from "commander";
 import { render } from "ink";
 import React from "react";
+import { spawn as nodeSpawn, execSync } from "child_process";
 import { RingServer } from "./server/ring.js";
 import { openTunnel, type TunnelInfo } from "./server/tunnel.js";
 import {
@@ -14,6 +15,55 @@ import { Daemon } from "./daemon/daemon.js";
 import { App } from "./client/App.js";
 import { DEFAULT_PORT, DEFAULT_DAEMON_CONFIG } from "./shared/config.js";
 import type { PrivacyMode } from "./shared/config.js";
+
+function findTerminalEmulator(): string | null {
+  const candidates = [
+    process.env.TERMINAL,
+    "x-terminal-emulator",
+    "gnome-terminal",
+    "konsole",
+    "xfce4-terminal",
+    "cosmic-term",
+    "xterm",
+  ].filter(Boolean) as string[];
+
+  for (const term of candidates) {
+    try {
+      execSync(`which ${term}`, { stdio: "ignore" });
+      return term;
+    } catch {
+      // not found, try next
+    }
+  }
+  return null;
+}
+
+function openInNewTerminal(args: string[]): boolean {
+  const term = findTerminalEmulator();
+  if (!term) return false;
+
+  const cmd = ["real-steel", ...args];
+
+  // Different terminals use different flags for running a command
+  let spawnArgs: string[];
+  if (term.includes("gnome-terminal") || term.includes("cosmic-term")) {
+    spawnArgs = [term, "--", ...cmd];
+  } else if (term.includes("konsole")) {
+    spawnArgs = [term, "-e", ...cmd];
+  } else if (term.includes("xfce4-terminal")) {
+    spawnArgs = [term, "-e", cmd.join(" ")];
+  } else {
+    // x-terminal-emulator, xterm, and most others use -e
+    spawnArgs = [term, "-e", ...cmd];
+  }
+
+  const proc = nodeSpawn(spawnArgs[0], spawnArgs.slice(1), {
+    detached: true,
+    stdio: "ignore",
+  });
+  proc.unref();
+  return true;
+}
 
 const program = new Command();
 
@@ -91,6 +141,26 @@ program
     String(DEFAULT_DAEMON_CONFIG.debounceMs)
   )
   .action(async (url, opts) => {
+    // If not in a TTY (e.g., called from Claude Code's Bash tool),
+    // open a new terminal window with the same command
+    if (!process.stdin.isTTY) {
+      const args = ["join", url, "--name", opts.name];
+      if (opts.claude === false) args.push("--no-claude");
+      if (opts.privacy) args.push("--privacy", opts.privacy);
+      if (opts.privacyPaths) args.push("--privacy-paths", ...opts.privacyPaths);
+      if (opts.debounce) args.push("--debounce", opts.debounce);
+
+      const opened = openInNewTerminal(args);
+      if (opened) {
+        console.log("Opening Real Steel in a new terminal window...");
+        process.exit(0);
+      } else {
+        console.error("No terminal emulator found. Run this command in your terminal:");
+        console.error(`  real-steel ${args.join(" ")}`);
+        process.exit(1);
+      }
+    }
+
     const validModes = ["whitelist", "blacklist", "claude-decides"];
     if (!validModes.includes(opts.privacy)) {
       console.error(

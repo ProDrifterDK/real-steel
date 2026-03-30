@@ -26,15 +26,10 @@ If that fails, try:
 npm install -g real-steel
 ```
 
-## IMPORTANT: TUI Limitation
+## Terminal Behavior
 
-The `real-steel join` command launches an interactive TUI (Ink/React terminal UI) that **requires a real terminal with raw mode support**. It CANNOT run through Claude Code's Bash tool.
-
-You MUST instruct the user to run the `join` command themselves in their terminal, either:
-- By typing `! real-steel join ...` at the Claude Code prompt (which runs it in their shell)
-- By copying the command and running it in a separate terminal
-
-The `real-steel serve` command CAN run in the background via Bash (it has no TUI).
+- `real-steel serve` runs headless — safe to run via Bash in the background.
+- `real-steel join` auto-detects when it's not in a TTY (e.g., called from Claude Code's Bash tool) and **automatically opens a new terminal window** with the TUI. So you CAN run it via Bash — a new terminal will pop up for the user.
 
 ## Wizard Flow
 
@@ -92,18 +87,17 @@ real-steel serve 2>&1 &
 
 Wait a few seconds, then check the output for the "Public URL:" line. Extract the `wss://` URL.
 
-**5. Give the user the join command**
+**5. Join the ring**
+
+Run (a new terminal window will open automatically):
+```bash
+real-steel join <url> --name <name> --privacy <mode> [--privacy-paths <paths...>]
+```
 
 Tell the user:
-> Your ring is live! To join, run this command in your terminal (type `!` before it to run from here):
->
-> `! real-steel join wss://THE-URL-HERE --name NAME --privacy claude-decides`
->
-> Share this with your team so they can join:
+> A new terminal window is opening with the ring. Share this with your team:
 >
 > `real-steel join wss://THE-URL-HERE --name THEIR-NAME --privacy claude-decides`
-
-**DO NOT run the join command via Bash yourself.** The user must run it.
 
 ---
 
@@ -127,16 +121,11 @@ Ask with AskUserQuestion:
 
 Same as Host flow step 2 (use the exact CLI value mapping).
 
-**5. Give the user the join command**
+**5. Join the ring**
 
-Build the command:
-```
+Run (a new terminal window will open automatically):
+```bash
 real-steel join <url> --name <name> [--no-claude] [--privacy <mode>] [--privacy-paths <paths...>]
 ```
 
-Tell the user:
-> Run this in your terminal (type `!` before it to run from here):
->
-> `! real-steel join wss://THE-URL --name NAME --privacy claude-decides`
-
-**DO NOT run the join command via Bash yourself.** The user must run it.
+Tell the user a new terminal window is opening with the ring.
