@@ -17,12 +17,12 @@ export function InputBar({ onSubmit }: InputBarProps) {
   };
 
   return (
-    <Box borderStyle='round' borderColor='gray' paddingX={1}>
-      <Text color='green'>➜ </Text>
-      <TextInput 
-        value={value} 
-        onChange={setValue} 
-        onSubmit={handleSubmit} 
+    <Box flexGrow={1}>
+      <Text color="green">➜ </Text>
+      <TextInput
+        value={value}
+        onChange={setValue}
+        onSubmit={handleSubmit}
         placeholder="Type a message..."
       />
     </Box>

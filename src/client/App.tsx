@@ -25,7 +25,7 @@ export function App({ url, name }: AppProps) {
             <Text color="red">Disconnected. Reconnecting...</Text>
           </Box>
         )}
-        <Box paddingX={1} gap={1}>
+        <Box borderStyle="round" borderColor="gray" paddingX={1} gap={1} width="100%">
           <Text color="green" bold>
             {participants > 0 ? `[${participants} online]` : ""}
           </Text>

@@ -49,6 +49,7 @@ export function ChatView({ messages, url }: ChatViewProps) {
               borderColor="cyan"
               paddingX={1}
               justifyContent="space-between"
+              width="100%"
             >
               <Text bold color="cyan">
                 Real Steel
