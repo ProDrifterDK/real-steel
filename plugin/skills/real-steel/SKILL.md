@@ -14,11 +14,27 @@ Before running any commands, check if `real-steel` is installed:
 which real-steel
 ```
 
-If not found, install it:
+If not found, install from the local project:
+
+```bash
+cd "/home/prodrifterdk/Documentos/projects/Real Steel" && npm link
+```
+
+If that fails, try:
 
 ```bash
 npm install -g real-steel
 ```
+
+## IMPORTANT: TUI Limitation
+
+The `real-steel join` command launches an interactive TUI (Ink/React terminal UI) that **requires a real terminal with raw mode support**. It CANNOT run through Claude Code's Bash tool.
+
+You MUST instruct the user to run the `join` command themselves in their terminal, either:
+- By typing `! real-steel join ...` at the Claude Code prompt (which runs it in their shell)
+- By copying the command and running it in a separate terminal
+
+The `real-steel serve` command CAN run in the background via Bash (it has no TUI).
 
 ## Wizard Flow
 
@@ -49,6 +65,11 @@ Ask with AskUserQuestion (3 options):
 
 If whitelist or blacklist: ask for the paths.
 
+**Privacy mode CLI values (MUST use these exact strings):**
+- "Claude decides" → `claude-decides`
+- "Whitelist" → `whitelist`
+- "Blacklist" → `blacklist`
+
 **3. Check cloudflared**
 
 Run:
@@ -62,31 +83,27 @@ If yes, run the appropriate install command:
 - macOS: `brew install cloudflared`
 - Linux: `curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o ~/.local/bin/cloudflared && chmod +x ~/.local/bin/cloudflared`
 
-**4. Start the ring**
+**4. Start the ring server**
 
-Run in background:
+Run in background (this is fine via Bash — no TUI):
 ```bash
-real-steel serve &
+real-steel serve 2>&1 &
 ```
 
-Wait for the "Public URL:" line in the output. Extract the `wss://` URL.
+Wait a few seconds, then check the output for the "Public URL:" line. Extract the `wss://` URL.
 
-**5. Print the shareable URL**
+**5. Give the user the join command**
 
 Tell the user:
-> Your ring is live! Share this with your team:
-> ```
-> /real-steel join wss://abc-xyz.trycloudflare.com
-> ```
+> Your ring is live! To join, run this command in your terminal (type `!` before it to run from here):
+>
+> `! real-steel join wss://THE-URL-HERE --name NAME --privacy claude-decides`
+>
+> Share this with your team so they can join:
+>
+> `real-steel join wss://THE-URL-HERE --name THEIR-NAME --privacy claude-decides`
 
-**6. Join the ring**
-
-Run:
-```bash
-real-steel join <url> --name <name> --privacy <mode> [--privacy-paths <paths...>]
-```
-
-This launches the chat TUI. The user is now in the ring.
+**DO NOT run the join command via Bash yourself.** The user must run it.
 
 ---
 
@@ -108,13 +125,18 @@ Ask with AskUserQuestion:
 
 **4. If Claude enabled, ask privacy mode**
 
-Same as Host flow step 2.
+Same as Host flow step 2 (use the exact CLI value mapping).
 
-**5. Join the ring**
+**5. Give the user the join command**
 
-Run:
-```bash
+Build the command:
+```
 real-steel join <url> --name <name> [--no-claude] [--privacy <mode>] [--privacy-paths <paths...>]
 ```
 
-This launches the chat TUI. The user is now in the ring.
+Tell the user:
+> Run this in your terminal (type `!` before it to run from here):
+>
+> `! real-steel join wss://THE-URL --name NAME --privacy claude-decides`
+
+**DO NOT run the join command via Bash yourself.** The user must run it.

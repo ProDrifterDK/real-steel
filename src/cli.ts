@@ -91,6 +91,14 @@ program
     String(DEFAULT_DAEMON_CONFIG.debounceMs)
   )
   .action(async (url, opts) => {
+    const validModes = ["whitelist", "blacklist", "claude-decides"];
+    if (!validModes.includes(opts.privacy)) {
+      console.error(
+        `Invalid privacy mode: "${opts.privacy}". Must be one of: ${validModes.join(", ")}`
+      );
+      process.exit(1);
+    }
+
     let daemon: Daemon | null = null;
 
     if (opts.claude !== false) {
