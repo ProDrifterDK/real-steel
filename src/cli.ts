@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import "./shared/colors.js"; // Must be first: enables chalk colors before marked-terminal loads
 import { Command } from "commander";
 import { render } from "ink";
 import React from "react";
