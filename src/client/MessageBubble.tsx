@@ -17,9 +17,18 @@ function formatTime(timestamp: string): string {
   });
 }
 
+// marked-terminal v7 doesn't process inline formatting inside list items.
+// Post-process to catch remaining **bold** and `code` markers.
+function fixInlineFormatting(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "\x1b[1m$1\x1b[22m")
+    .replace(/`(.+?)`/g, "\x1b[33m$1\x1b[39m");
+}
+
 function renderContent(content: string, isAgent: boolean): string {
   if (isAgent) {
-    return (marked.parse(content) as string).trimEnd();
+    const rendered = (marked.parse(content) as string).trimEnd();
+    return fixInlineFormatting(rendered);
   }
   return content;
 }
