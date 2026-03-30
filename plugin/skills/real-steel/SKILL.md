@@ -95,9 +95,11 @@ real-steel join <url> --name <name> --privacy <mode> [--privacy-paths <paths...>
 ```
 
 Tell the user:
-> A new terminal window is opening with the ring. Share this with your team:
+> A new terminal window is opening with the ring. Share this URL with your team so they can join with `/real-steel` on their Claude Code:
 >
-> `real-steel join wss://THE-URL-HERE --name THEIR-NAME --privacy claude-decides`
+> `wss://THE-URL-HERE`
+>
+> They will be prompted for their name and settings when they run `/real-steel` and choose "Join".
 
 ---
 
