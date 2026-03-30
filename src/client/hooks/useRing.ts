@@ -27,6 +27,7 @@ export function useRing({ url, name }: UseRingOptions): UseRingResult {
   const seqRef = useRef(0);
   const destroyedRef = useRef(false);
   const reconnectAttemptsRef = useRef(0);
+  const latestCountTimestampRef = useRef("");
 
   useEffect(() => {
     destroyedRef.current = false;
@@ -49,8 +50,10 @@ export function useRing({ url, name }: UseRingOptions): UseRingResult {
 
           if (
             msg.type === "system" &&
-            (msg as SystemEvent).participantCount !== undefined
+            (msg as SystemEvent).participantCount !== undefined &&
+            msg.timestamp >= latestCountTimestampRef.current
           ) {
+            latestCountTimestampRef.current = msg.timestamp;
             setParticipantCount((msg as SystemEvent).participantCount!);
           }
         }

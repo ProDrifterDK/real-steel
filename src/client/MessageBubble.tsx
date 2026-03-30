@@ -44,14 +44,32 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const nameColor = isAgent ? "magenta" : "yellow";
   const prefix = isAgent ? "\u{1F916} " : "";
 
+  if (isAgent) {
+    // Agent messages: name on first line, content below (avoids wrapping issues)
+    return (
+      <Box paddingX={1} flexDirection="column">
+        <Text>
+          <Text dimColor>{formatTime(chatMsg.timestamp)}</Text>
+          {" "}
+          <Text color={nameColor} bold>
+            {prefix}{chatMsg.from}
+          </Text>
+        </Text>
+        <Text>{renderContent(chatMsg.content, true)}</Text>
+      </Box>
+    );
+  }
+
+  // Human messages: inline (they're typically short)
   return (
-    <Box paddingX={1} flexDirection="row" gap={1}>
-      <Text dimColor>{formatTime(chatMsg.timestamp)}</Text>
-      <Text color={nameColor} bold>
-        {prefix}
-        {chatMsg.from}
+    <Box paddingX={1}>
+      <Text>
+        <Text dimColor>{formatTime(chatMsg.timestamp)}</Text>
+        {" "}
+        <Text color={nameColor} bold>{chatMsg.from}</Text>
+        {" "}
+        {chatMsg.content}
       </Text>
-      <Text>{renderContent(chatMsg.content, isAgent)}</Text>
     </Box>
   );
 }
