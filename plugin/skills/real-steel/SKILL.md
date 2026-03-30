@@ -1,4 +1,5 @@
 ---
+name: real-steel
 description: Start or join a Real Steel collaborative ring for multi-human + AI agent chat
 ---
 
