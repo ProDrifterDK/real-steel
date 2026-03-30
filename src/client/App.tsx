@@ -18,15 +18,19 @@ export function App({ url, name }: AppProps) {
 
   return (
     <>
-      <ChatView messages={messages} />
+      <ChatView messages={messages} url={url} />
       <Box flexDirection="column">
-        <Header url={url} participantCount={participants} />
         {!connected && (
           <Box justifyContent="center">
             <Text color="red">Disconnected. Reconnecting...</Text>
           </Box>
         )}
-        <InputBar onSubmit={sendMessage} />
+        <Box paddingX={1} gap={1}>
+          <Text color="green" bold>
+            {participants > 0 ? `[${participants} online]` : ""}
+          </Text>
+          <InputBar onSubmit={sendMessage} />
+        </Box>
       </Box>
     </>
   );

@@ -86,11 +86,9 @@ program
       await daemon.start();
     }
 
-    // Redirect console output to stderr so daemon logs don't corrupt Ink's rendering
-    console.log = (...args: unknown[]) =>
-      process.stderr.write(args.map(String).join(" ") + "\n");
-    console.error = (...args: unknown[]) =>
-      process.stderr.write(args.map(String).join(" ") + "\n");
+    // Suppress console output so daemon logs don't corrupt Ink's rendering
+    console.log = () => {};
+    console.error = () => {};
 
     const { waitUntilExit } = render(
       React.createElement(App, { url, name: opts.name })
