@@ -1,7 +1,12 @@
 import React from "react";
 import { Box, Text } from "ink";
 import { marked } from "marked";
+import { markedTerminal } from "marked-terminal";
 import type { RingMessage, ChatMessage } from "../shared/protocol.js";
+
+// Configure marked to render markdown as ANSI terminal output (runs once)
+// Type cast needed: @types/marked-terminal is outdated for v7.3.0
+marked.use(markedTerminal() as any);
 
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp);

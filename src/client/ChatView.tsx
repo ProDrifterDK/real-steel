@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Box, Text, useStdout } from "ink";
+import React from "react";
+import { Static, Box, Text } from "ink";
 import { MessageBubble } from "./MessageBubble.js";
 import type { RingMessage } from "../shared/protocol.js";
 
@@ -16,34 +16,29 @@ function formatDate(timestamp: string): string {
 }
 
 export function ChatView({ messages }: ChatViewProps) {
-  const { stdout } = useStdout();
-  const maxVisible = (stdout?.rows || 24) - 4;
-
-  const visibleMessages = useMemo(
-    () => messages.slice(-Math.max(maxVisible, 10)),
-    [messages, maxVisible]
-  );
-
-  let lastDate = "";
-
   return (
-    <Box flexDirection="column" flexGrow={1}>
-      {visibleMessages.map((msg) => {
-        const msgDate = formatDate(msg.timestamp);
-        const showDateSeparator = msgDate !== lastDate;
-        lastDate = msgDate;
+    <Static items={messages}>
+      {(msg, index) => {
+        const prevMsg = index > 0 ? messages[index - 1] : null;
+        const showDateSeparator =
+          !prevMsg ||
+          formatDate(msg.timestamp) !== formatDate(prevMsg.timestamp);
 
         return (
           <Box key={msg.id} flexDirection="column">
             {showDateSeparator && (
-              <Box justifyContent="center" paddingY={1}>
-                <Text dimColor>{"── "}{msgDate}{" ──"}</Text>
+              <Box justifyContent="center" paddingY={0}>
+                <Text dimColor>
+                  {"── "}
+                  {formatDate(msg.timestamp)}
+                  {" ──"}
+                </Text>
               </Box>
             )}
             <MessageBubble message={msg} />
           </Box>
         );
-      })}
-    </Box>
+      }}
+    </Static>
   );
 }

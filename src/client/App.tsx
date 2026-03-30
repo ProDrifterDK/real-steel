@@ -17,15 +17,17 @@ export function App({ url, name }: AppProps) {
   });
 
   return (
-    <Box flexDirection="column" height={process.stdout.rows || 24}>
-      <Header url={url} participantCount={participants} />
-      {!connected && (
-        <Box justifyContent="center" paddingY={1}>
-          <Text color="red">Disconnected. Reconnecting...</Text>
-        </Box>
-      )}
+    <>
       <ChatView messages={messages} />
-      <InputBar onSubmit={sendMessage} />
-    </Box>
+      <Box flexDirection="column">
+        <Header url={url} participantCount={participants} />
+        {!connected && (
+          <Box justifyContent="center">
+            <Text color="red">Disconnected. Reconnecting...</Text>
+          </Box>
+        )}
+        <InputBar onSubmit={sendMessage} />
+      </Box>
+    </>
   );
 }

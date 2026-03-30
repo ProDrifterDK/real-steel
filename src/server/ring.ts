@@ -33,8 +33,14 @@ export class RingServer {
         const catchUpSnapshot = [...this.messageBuffer];
 
         // Broadcast join event to existing participants
-        const joinEvent = createSystemEvent(`${name} has joined the ring`);
+        const count = this.participants.size;
+        const joinEvent = createSystemEvent(
+          `${name} has joined the ring`,
+          count
+        );
         this.broadcast(joinEvent, ws);
+        // Also send to the joining client so they know the count
+        ws.send(JSON.stringify(joinEvent));
         this.addToBuffer(joinEvent);
 
         // Send catch-up snapshot to new connection after a short delay so the
@@ -76,7 +82,8 @@ export class RingServer {
           this.participants.delete(ws);
           if (participant) {
             const leaveEvent = createSystemEvent(
-              `${participant.name} has left the ring`
+              `${participant.name} has left the ring`,
+              this.participants.size
             );
             this.broadcast(leaveEvent);
             this.addToBuffer(leaveEvent);

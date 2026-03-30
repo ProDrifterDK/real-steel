@@ -48,6 +48,7 @@ export interface SystemEvent {
   type: "system";
   content: string;
   timestamp: string;
+  participantCount?: number;
 }
 
 export type RingMessage = ChatMessage | SystemEvent;
@@ -81,13 +82,17 @@ export function createChatMessage(
 /**
  * Create a system event message.
  */
-export function createSystemEvent(content: string): SystemEvent {
+export function createSystemEvent(
+  content: string,
+  participantCount?: number
+): SystemEvent {
   return {
     id: uuidv4(),
     seq: 0,
     type: "system",
     content,
     timestamp: new Date().toISOString(),
+    ...(participantCount !== undefined && { participantCount }),
   };
 }
 

@@ -4,6 +4,7 @@ import {
   parseMessage,
   createChatMessage,
   type RingMessage,
+  type SystemEvent,
 } from "../../shared/protocol.js";
 
 interface UseRingOptions {
@@ -21,9 +22,7 @@ interface UseRingResult {
 export function useRing({ url, name }: UseRingOptions): UseRingResult {
   const [messages, setMessages] = useState<RingMessage[]>([]);
   const [connected, setConnected] = useState(false);
-  const [participantNames, setParticipantNames] = useState<Set<string>>(
-    new Set()
-  );
+  const [participantCount, setParticipantCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const seqRef = useRef(0);
   const destroyedRef = useRef(false);
@@ -48,18 +47,11 @@ export function useRing({ url, name }: UseRingOptions): UseRingResult {
         if (msg) {
           setMessages((prev) => [...prev, msg]);
 
-          if (msg.type === "system") {
-            const joinMatch = msg.content.match(/^(.+) has joined the ring$/);
-            const leaveMatch = msg.content.match(/^(.+) has left the ring$/);
-            if (joinMatch) {
-              setParticipantNames((prev) => new Set([...prev, joinMatch[1]]));
-            } else if (leaveMatch) {
-              setParticipantNames((prev) => {
-                const next = new Set(prev);
-                next.delete(leaveMatch[1]);
-                return next;
-              });
-            }
+          if (
+            msg.type === "system" &&
+            (msg as SystemEvent).participantCount !== undefined
+          ) {
+            setParticipantCount((msg as SystemEvent).participantCount!);
           }
         }
       });
@@ -84,7 +76,6 @@ export function useRing({ url, name }: UseRingOptions): UseRingResult {
     }
 
     connect();
-    setParticipantNames(new Set([name]));
 
     return () => {
       destroyedRef.current = true;
@@ -111,7 +102,7 @@ export function useRing({ url, name }: UseRingOptions): UseRingResult {
 
   return {
     messages,
-    participants: participantNames.size,
+    participants: participantCount,
     connected,
     sendMessage,
   };
