@@ -1,63 +1,30 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import { marked } from 'marked';
-
-// Import types for namespace functions (marked-terminal uses namespace pattern)
-interface HeadingStyle {
-  level?: number[];
-  style?: string;
-}
-
-interface HighlightOptions {
-  theme?: string;
-}
-
-interface TerminalRendererOptions extends Partial<{
-  heading: HeadingStyle;
-}> {}
-
-interface MarkedExtension {
-  renderer: Record<string, any>;
-  useNewRenderer: true;
-}
-
-// Type assertion for namespace functions (marked-terminal uses namespace pattern)
-declare function markedTerminal(options: Partial<TerminalRendererOptions>): MarkedExtension;
-declare function highlighted(highlightOptions?: HighlightOptions): MarkedExtension;
+import React from "react";
+import { Box, Text } from "ink";
+import { marked } from "marked";
+import type { RingMessage, ChatMessage } from "../shared/protocol.js";
 
 function formatTime(timestamp: string): string {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
+  return date.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   });
 }
 
-// Configure marked with terminal renderer (only once)
-(marked as any).use(
-  ((options: any[]) => ({ useNewRenderer: true }))([
-    {
-      heading: {
-        level: [1, 2],
-        style: 'cyan.bold',
-        prefix: ['# ', '# ', '# '] as string[]
-      }
-    }
-  ])
-);
-
 function renderContent(content: string, isAgent: boolean): string {
   if (isAgent) {
-    // Use parseSync for synchronous rendering (required by Ink)
-    const result = marked.parse(content);
-    return (result as any).toString?.() || result;
+    return (marked.parse(content) as string).trimEnd();
   }
   return content;
 }
 
-export function MessageBubble({ message }: { message: any }) {
-  if (message.type === 'system') {
+interface MessageBubbleProps {
+  message: RingMessage;
+}
+
+export function MessageBubble({ message }: MessageBubbleProps) {
+  if (message.type === "system") {
     return (
       <Box paddingX={1}>
         <Text dimColor italic>
@@ -67,32 +34,19 @@ export function MessageBubble({ message }: { message: any }) {
     );
   }
 
-  const chatMsg = message as any;
-  const isAgent = (chatMsg as any).role === 'agent';
-  
-  // Add emoji prefix based on role
-  let nameColor: string;
-  let prefix: string;
-  
-  if (isAgent) {
-    nameColor = 'magenta';
-    // Use AI-related emojis for agent messages
-    const aiEmojis = ['🤖', '🧠', '✨', '💡', '🎯'];
-    prefix = aiEmojis[Math.floor(Math.random() * aiEmojis.length)];
-  } else {
-    nameColor = 'yellow';
-    // Use human-related emojis for user messages (or just space)
-    const humanEmojis = ['👤', '💬', '💭'];
-    prefix = humanEmojis[Math.floor(Math.random() * humanEmojis.length)];
-  }
+  const chatMsg = message as ChatMessage;
+  const isAgent = chatMsg.role === "agent";
+  const nameColor = isAgent ? "magenta" : "yellow";
+  const prefix = isAgent ? "\u{1F916} " : "";
 
   return (
-    <Box paddingX={1} flexDirection='row' gap={1}>
-      <Text dimColor>{formatTime((chatMsg as any).timestamp)}</Text>
+    <Box paddingX={1} flexDirection="row" gap={1}>
+      <Text dimColor>{formatTime(chatMsg.timestamp)}</Text>
       <Text color={nameColor} bold>
-        {prefix}{(chatMsg as any).from}
+        {prefix}
+        {chatMsg.from}
       </Text>
-      <Text>{renderContent((chatMsg as any).content, isAgent)}</Text>
+      <Text>{renderContent(chatMsg.content, isAgent)}</Text>
     </Box>
   );
 }

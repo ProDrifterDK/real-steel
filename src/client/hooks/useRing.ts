@@ -1,205 +1,118 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from "react";
+import WebSocket from "ws";
+import {
+  parseMessage,
+  createChatMessage,
+  type RingMessage,
+} from "../../shared/protocol.js";
 
 interface UseRingOptions {
   url: string;
   name: string;
 }
 
-/**
- * Hook for connecting to a Real Steel ring.
- * Manages WebSocket connection with automatic reconnection and participant tracking.
- */
-export function useRing({ url, name }: UseRingOptions) {
-  const [messages, setMessages] = useState<any[]>([]);
+interface UseRingResult {
+  messages: RingMessage[];
+  participants: number;
+  connected: boolean;
+  sendMessage: (content: string) => void;
+}
+
+export function useRing({ url, name }: UseRingOptions): UseRingResult {
+  const [messages, setMessages] = useState<RingMessage[]>([]);
   const [connected, setConnected] = useState(false);
-  const [participants, setParticipants] = useState(0);
-  
-  // Refs for WebSocket and reconnection logic
-  let wsRef: WebSocket | null = null;
-  let reconnectAttemptsRef: number = 0;
+  const [participantNames, setParticipantNames] = useState<Set<string>>(
+    new Set()
+  );
+  const wsRef = useRef<WebSocket | null>(null);
+  const seqRef = useRef(0);
+  const destroyedRef = useRef(false);
+  const reconnectAttemptsRef = useRef(0);
 
   useEffect(() => {
-    // Reset state when URL or name changes (new ring connection)
-    setMessages([]);
-    reconnectAttemptsRef = 0;
-    __destroyed = false;
+    destroyedRef.current = false;
 
     function connect() {
-      try {
-        wsRef = new WebSocket(url); 
+      const ws = new WebSocket(url, {
+        headers: { "x-participant-name": name },
+      });
+      wsRef.current = ws;
 
-        if (!wsRef) return;
+      ws.on("open", () => {
+        setConnected(true);
+        reconnectAttemptsRef.current = 0;
+      });
 
-        // Capture wsRef in closure to satisfy TypeScript's null check requirement
-        const currentWsRef = wsRef;
-        
-        const onopen: () => void = () => {
-          console.log(`[useRing] Connected to ${url}`);
-          setConnected(true);
-          reconnectAttemptsRef = 0;
-          
-          // Send join message (if needed by server)
-          const joinMsg = JSON.stringify({
-            type: 'join_request',
-            name,
-            noClaude: false,
-            daemonUrl: undefined,
-          });
-          currentWsRef.send(joinMsg);
-        };
+      ws.on("message", (data: Buffer) => {
+        const msg = parseMessage(data.toString());
+        if (msg) {
+          setMessages((prev) => [...prev, msg]);
 
-        const onmessage: (event: MessageEvent) => void = (event) => {
-          if (__destroyed) return;
-          
-          const msgStr = event.data.toString();
-          
-          // Parse message using shared protocol parser
-          let msg: any;
-          try {
-            msg = typeof msgStr === 'object' ? msgStr : JSON.parse(msgStr);
-            
-            if (!msg || !msg.type || !msg.from) {
-              return;
+          if (msg.type === "system") {
+            const joinMatch = msg.content.match(/^(.+) has joined the ring$/);
+            const leaveMatch = msg.content.match(/^(.+) has left the ring$/);
+            if (joinMatch) {
+              setParticipantNames((prev) => new Set([...prev, joinMatch[1]]));
+            } else if (leaveMatch) {
+              setParticipantNames((prev) => {
+                const next = new Set(prev);
+                next.delete(leaveMatch[1]);
+                return next;
+              });
             }
-
-            setMessages((prev) => [...(prev as any[]), msg]);
-          } catch (err: any) {
-            console.error('[useRing] Failed to parse message:', err.message);
           }
-        };
+        }
+      });
 
-        const onclose: () => void = () => {
-          if (__destroyed) return;
-          
-          console.log(`[useRing] Disconnected from ${url}`);
-          setConnected(false);
-          
-          // Don't reconnect if we're closing cleanly
-          const wasCleanClose = (currentWsRef as any).wasClean === true;
-          if (!__destroyed && !wasCleanClose) {
-            // Reconnect with exponential backoff (max 30 seconds)
-            const delay = Math.min(1000 * 2 ** reconnectAttemptsRef, 30000);
-            reconnectAttemptsRef++;
-            
-            setTimeout(() => connect(), delay);
-          } else {
-            console.log('[useRing] Clean disconnect, not reconnecting');
-          }
-        };
+      ws.on("close", () => {
+        setConnected(false);
+        if (!destroyedRef.current) {
+          const delay = Math.min(
+            1000 * 2 ** reconnectAttemptsRef.current,
+            30000
+          );
+          reconnectAttemptsRef.current++;
+          setTimeout(() => {
+            if (!destroyedRef.current) connect();
+          }, delay);
+        }
+      });
 
-        const onerror: (err: any) => void = (err) => {
-          if (__destroyed) return;
-          console.error('[useRing] WebSocket error:', err.message);
-          // Errors trigger close event, which handles reconnection
-        };
-
-        wsRef.onopen = onopen;
-        wsRef.onmessage = onmessage;
-        wsRef.onclose = onclose;
-        wsRef.onerror = onerror;
-      } catch (err: any) {
-        console.error('[useRing] Failed to create WebSocket:', err.message);
-      }
+      ws.on("error", () => {
+        // Errors trigger close event, which handles reconnection
+      });
     }
 
     connect();
+    setParticipantNames(new Set([name]));
 
     return () => {
-      __destroyed = true;
-      if (wsRef && wsRef.readyState === WebSocket.OPEN) {
-        wsRef.close();
-      }
+      destroyedRef.current = true;
+      wsRef.current?.close();
     };
   }, [url, name]);
 
-  const sendMessage = useCallback((content: string) => {
-    // Don't send if not connected or destroyed
-    if (!connected || __destroyed) return false;
-    
-    // Check WebSocket readyState (1 = OPEN)
-    let currentWsRef = wsRef;
-    if (!currentWsRef || currentWsRef.readyState !== WebSocket.OPEN) {
-      console.log('[useRing] Not connected, cannot send message');
-      return false;
-    }
-
-    let seqNum: number = 0;
-    const seq = ++seqNum;
-    const msg: any = {
-      type: 'message',
-      from: name,
-      role: 'human',
-      content: content.trim(),
-      seq: seq,
-      id: `msg-${Date.now()}-${seq}`,
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      currentWsRef.send(JSON.stringify(msg));
-      setMessages((prev) => [...(prev as any[]), msg]);
-      
-      console.log(`[useRing] Message sent: "${content.trim().substring(0, 50)}..."`);
-      return true;
-    } catch (err: any) {
-      console.error('[useRing] Failed to send message:', err.message);
-      return false;
-    }
-  }, [name, connected]);
-
-  // Track participant count from system events
-  useEffect(() => {
-    let currentWsRef = wsRef;
-    if (!currentWsRef || currentWsRef.readyState !== WebSocket.OPEN) return;
-
-    const handleSystemEvent = (data: any) => {
-      try {
-        const msg = data as any;
-        
-        if (msg?.type === 'system' && msg.content) {
-          // Parse join events: "Name has joined the ring"
-          if (msg.content.includes('joined')) {
-            setParticipants(prev => prev + 1);
-          }
-          // Parse leave events: "Name has left the ring"  
-          else if (msg.content.includes('left')) {
-            setParticipants(prev => Math.max(0, prev - 1));
-          }
-        }
-      } catch {}
-    };
-
-    const onmessageHandler = (event: MessageEvent) => {
-      // Check for system event before normal message handling
-      try {
-        handleSystemEvent(event.data as any);
-      } catch {}
-      
-      // Then process as normal message if not destroyed
-      if (!__destroyed) {
-        setMessages((prev) => [...(prev as any[]), (event.data as any) || null]);
+  const sendMessage = useCallback(
+    (content: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        seqRef.current++;
+        const msg = createChatMessage(
+          name,
+          "human",
+          content,
+          seqRef.current
+        );
+        wsRef.current.send(JSON.stringify(msg));
+        setMessages((prev) => [...prev, msg]);
       }
-    };
+    },
+    [name]
+  );
 
-    // Use type assertion to bypass TypeScript's null check issue in effect cleanup
-    const wsOnmessage: any = currentWsRef.onmessage;
-    currentWsRef.onmessage = onmessageHandler;
-
-    return () => {
-      wsOnmessage ? (currentWsRef.onmessage = wsOnmessage) : (currentWsRef.onmessage = null);
-    };
-  }, [wsRef, __destroyed]);
-
-  // Use ref for destroyed flag to avoid stale closures
-  const setDestroyed = useCallback((val: boolean) => {
-    (__destroyed as any) = val;
-  }, []);
-
-  return { 
-    messages, 
-    participants: Math.max(0, participants), 
-    connected, 
+  return {
+    messages,
+    participants: participantNames.size,
+    connected,
     sendMessage,
-    __destroyed: false as any // Placeholder - will be set by cleanup function
   };
 }
