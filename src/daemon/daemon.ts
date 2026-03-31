@@ -23,6 +23,7 @@ export class Daemon {
   private url: string;
   private name: string;
   private seq = 0;
+  private lastSeenSeq = -1;
 
   constructor(url: string, name: string, config: DaemonConfig) {
     this.url = url;
@@ -104,12 +105,23 @@ export class Daemon {
    * Ignora propios mensajes y pasa al debouncer o pending buffer.
    */
   private onMessage(msg: RingMessage): void {
-    // Ignorar propios mensajes (evita eco)
+    // Ignore own messages (avoid echo)
     if (msg.type === "message" && msg.from === `Claude-${this.name}`) {
       return;
     }
 
-    console.log(`[daemon] Received message from ${msg.type === "system" ? "system" : msg.from}`);
+    // Ignore system messages (join/leave events don't need Claude's attention)
+    if (msg.type === "system") {
+      return;
+    }
+
+    // Ignore catch-up messages we already processed (on reconnect)
+    if (msg.seq <= this.lastSeenSeq) {
+      return;
+    }
+    this.lastSeenSeq = msg.seq;
+
+    console.log(`[daemon] Received message from ${msg.from}`);
 
     // Si Claude está busy, acumular en pending buffer
     if (this.bridge.isBusy()) {
