@@ -85,8 +85,9 @@ export class ClaudeBridge {
       const formatted = formatMessagesForClaude(messages);
       const prompt =
         `New messages in the ring:\n${formatted}\n\n` +
-        `Respond only if you have something genuinely useful to contribute. ` +
-        `If you have nothing to add, respond with exactly: [SILENT]`;
+        `You are a participant in a collaborative chat ring. Answer questions, share knowledge, and engage in the conversation. ` +
+        `Only respond with exactly [SILENT] if the messages are purely social chatter between humans that doesn't need your input (e.g., "brb", "lol", greetings between people). ` +
+        `For any question, technical discussion, or request for help — always respond.`;
 
       const args = this.buildArgs(prompt);
       const response = await this.execClaude(args);
