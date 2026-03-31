@@ -117,6 +117,10 @@ program
     console.log(`\nPublic URL: ${publicUrl}`);
     console.log("Share this with other participants to join.\n");
 
+    // Ignore SIGHUP so serve survives when the parent shell exits
+    // (e.g., when launched via Claude Code's Bash tool with & disown)
+    process.on("SIGHUP", () => {});
+
     process.on("SIGINT", () => {
       if (tunnelInstance) tunnelInstance.close();
       server.stop().then(() => process.exit(0));

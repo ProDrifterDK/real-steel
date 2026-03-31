@@ -87,12 +87,17 @@ If yes, run the appropriate install command:
 
 **4. Start the ring server**
 
-Run in background (this is fine via Bash — no TUI):
+Run in background. You MUST use `nohup` and `disown` so the server survives after the Bash shell exits:
 ```bash
-real-steel serve 2>&1 &
+nohup real-steel serve > /tmp/real-steel-serve.log 2>&1 & disown
 ```
 
-Wait a few seconds, then check the output for the "Public URL:" line. Extract the `wss://` URL.
+Then wait for the tunnel URL (cloudflared takes a few seconds):
+```bash
+sleep 8 && cat /tmp/real-steel-serve.log
+```
+
+Extract the `wss://` URL from the "Public URL:" line. If the URL isn't there yet, wait a few more seconds and try again.
 
 **5. Join the ring**
 
